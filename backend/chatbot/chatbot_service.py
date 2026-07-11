@@ -1,0 +1,117 @@
+from langchain_ollama import ChatOllama
+from langchain_core.prompts import ChatPromptTemplate
+
+from .config import LLM_MODEL, OLLAMA_TIMEOUT_SECONDS
+from .prompts import SYSTEM_PROMPT
+from .vector_store import get_retriever
+
+
+class ChatbotService:
+    _instance = None
+    _initialized = False
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        if ChatbotService._initialized:
+            return
+        ChatbotService._initialized = True
+
+        self.retriever = get_retriever()
+
+        self.llm = ChatOllama(
+            model=LLM_MODEL,
+            temperature=0,
+            client_kwargs={"timeout": OLLAMA_TIMEOUT_SECONDS},
+        )
+
+        self.prompt = ChatPromptTemplate.from_template(
+            SYSTEM_PROMPT
+        )
+
+        self.chain = self.prompt | self.llm
+
+    def ask(self, question: str):
+        import logging
+        _log = logging.getLogger(__name__)
+
+        try:
+            _log.debug("[ask] Invoking retriever with question: %s", question[:80])
+            docs = self.retriever.invoke(question)
+            _log.debug("[ask] Retriever returned %d docs", len(docs))
+
+            if not docs:
+                _log.debug("[ask] No docs found, returning fallback")
+                return {
+                        "success": False,
+                        "answer": "I couldn't find this information in the company policy document.",
+                        "sources": {
+                            "chunks": [],
+                            "agent_steps": [],
+                            "history_summary": None,
+                            "rewritten_query": None,
+                        },
+                    }
+
+            context = "\n\n".join(
+                doc.page_content for doc in docs
+            )
+            _log.debug("[ask] Context built (%d chars), invoking LLM chain", len(context))
+
+            response = self.chain.invoke({
+                "context": context,
+                "question": question
+            })
+            _log.debug("[ask] LLM chain returned, response type=%s", type(response).__name__)
+
+            chunks = []
+
+            for i, doc in enumerate(docs):
+
+                page = doc.metadata.get("page", "Unknown")
+
+                source = doc.metadata.get("source", "")
+
+                preview = doc.page_content[:250].replace("\n", " ")
+
+                chunks.append(
+                    {
+                        "rank": i + 1,
+                        "score": 1.0,
+                        "meta": {
+                            "page": page + 1 if isinstance(page, int) else page,
+                            "source": source.split("\\")[-1],
+                        },
+                        "preview": preview,
+                    }
+                )
+
+            _log.debug("[ask] Returning success response with %d chunks", len(chunks))
+            return {
+                    "success": True,
+                    "answer": response.content,
+                    "sources": {
+                        "chunks": chunks,
+                        "agent_steps": [],
+                        "history_summary": None,
+                        "rewritten_query": None,
+                    },
+                }
+
+        except Exception as e:
+            _log.error("[ask] Exception: %s", e, exc_info=True)
+
+            return {
+                    "success": False,
+                    "answer": "Something went wrong while processing your request.",
+                    "error": str(e),
+                    "sources": {
+                        "chunks": [],
+                        "agent_steps": [],
+                        "history_summary": None,
+                        "rewritten_query": None,
+                    },
+                }
