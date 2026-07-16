@@ -15,8 +15,11 @@ const display = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "RAG Chatbot — Accounts",
-  description: "Sign up, log in, and account dashboard",
+  title: "DotSquares AI",
+  description: "DotSquares AI — Multi-agent RAG assistant",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export default function RootLayout({

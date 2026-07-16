@@ -16,15 +16,10 @@ import {
   backfillSessionTitles,
   updateSessionTitle,
   deleteSession,
+  createChatSession,
 } from "@/lib/chat-api";
 import type { ChatSessionRow } from "@/lib/types/chat";
 import { groupSessionsByDate } from "@/lib/types/chat";
-
-type NavKey = "dashboard" | "profile";
-
-const navItems: { href: string; label: string; key: NavKey }[] = [
-  { href: "/profile", label: "Profile", key: "profile" },
-];
 
 const MAX_RECENTS = 20;
 
@@ -47,8 +42,11 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [recentsOpen, setRecentsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const renameRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const activeSessionId = getActiveSessionId(
     pathname ?? "",
@@ -96,6 +94,17 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   }, [refreshSessions]);
 
   useEffect(() => {
+    if (!userMenuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [userMenuOpen]);
+
+  useEffect(() => {
     if (menuOpen === null) return;
     function handleClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -113,13 +122,45 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     }
   }, [renamingId]);
 
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("rag_chatbot_sidebar_open");
+      if (stored !== null) setSidebarOpen(stored === "true");
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    function handleSnapshotUpdate(e: Event) {
+      const detail = (e as CustomEvent).detail as UserSnapshot | undefined;
+      if (detail) setSnapshot(detail);
+    }
+    window.addEventListener("user-snapshot-updated", handleSnapshotUpdate);
+    return () => window.removeEventListener("user-snapshot-updated", handleSnapshotUpdate);
+  }, []);
+
+  function toggleSidebar() {
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("rag_chatbot_sidebar_open", String(next)); } catch { /* silent */ }
+      return next;
+    });
+  }
+
   function logout() {
     clearAuthSession();
     router.replace("/login");
   }
 
-  function handleNewChat() {
-    window.dispatchEvent(new CustomEvent("new-chat-requested"));
+  async function handleNewChat() {
+    try {
+      const created = await createChatSession({ domain_key: "rera" });
+      if (created?.session?.id) {
+        router.push(`/dashboard?session=${created.session.id}`);
+        window.dispatchEvent(new CustomEvent("chat-sessions-changed"));
+      }
+    } catch {
+      // silent
+    }
   }
 
   function openMenu(e: React.MouseEvent, sessionId: number) {
@@ -188,8 +229,14 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const displaySessions = sessions.slice(0, MAX_RECENTS);
   const grouped = groupSessionsByDate(displaySessions);
 
+  const displayName =
+    snapshot?.display_name?.trim() ||
+    snapshot?.email?.split("@")[0] ||
+    "U";
+  const avatarLetter = displayName.charAt(0).toUpperCase();
+
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarOpen ? "" : "app-shell--sidebar-closed"}`}>
       <aside className="app-sidebar" aria-label="Main navigation">
         {/* 1. Logo */}
         <div className="app-sidebar__brand">
@@ -201,37 +248,13 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               width={40}
               height={40}
             />
-            <span className="app-sidebar__logo-text">DS Chatbot</span>
+            <span className="app-sidebar__logo-text">Dotsquares AI</span>
           </Link>
         </div>
 
-        {/* 2. User email */}
-        {snapshot?.email && (
-          <p className="app-sidebar__user">{snapshot.email}</p>
-        )}
+        {/* 2. User email (hidden — shown in profile btn at bottom) */}
 
-        {/* 3. Profile link */}
-        <nav className="app-sidebar__nav">
-          {navItems.map((item) => {
-            const active = pathname?.startsWith(item.href) ?? false;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={
-                  active
-                    ? "app-sidebar__link app-sidebar__link--active"
-                    : "app-sidebar__link"
-                }
-              >
-                <SidebarIcon tab={item.key} />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* 4. New Chat button */}
+        {/* 3. New Chat button */}
         <button
           type="button"
           className="app-sidebar__new-chat"
@@ -347,16 +370,63 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* 6. Logout */}
-        <div className="app-sidebar__footer">
+        {/* 6. User profile at bottom */}
+        <div className="app-sidebar__footer" ref={userMenuRef}>
           <button
             type="button"
-            className="app-sidebar__logout"
-            onClick={logout}
+            className="app-sidebar__user-btn"
+            onClick={() => setUserMenuOpen((o) => !o)}
+            aria-expanded={userMenuOpen}
+            aria-haspopup="menu"
           >
-            <SidebarLogoutIcon />
-            Log out
+            <span className="app-sidebar__user-avatar">
+              {snapshot?.profile_image_url ? (
+                <img
+                  src={snapshot.profile_image_url}
+                  alt=""
+                  className="app-sidebar__user-avatar-img"
+                />
+              ) : (
+                avatarLetter
+              )}
+            </span>
+            <span className="app-sidebar__user-name">
+              {displayName}
+            </span>
+            <svg className="app-sidebar__user-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
+          <div className={`app-sidebar__user-dropdown ${userMenuOpen ? "app-sidebar__user-dropdown--open" : ""}`} role="menu">
+            <div className="app-sidebar__user-dropdown-inner">
+              <button
+                type="button"
+                className="app-sidebar__user-dropdown-item"
+                role="menuitem"
+                onClick={() => { setUserMenuOpen(false); router.push("/profile"); }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                Profile
+              </button>
+              <div className="app-sidebar__user-dropdown-sep" />
+              <button
+                type="button"
+                className="app-sidebar__user-dropdown-item app-sidebar__user-dropdown-item--danger"
+                role="menuitem"
+                onClick={() => { setUserMenuOpen(false); logout(); }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Log out
+              </button>
+            </div>
+          </div>
         </div>
       </aside>
 
@@ -393,6 +463,18 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       )}
 
       <div className="app-shell__main">
+        <button
+          type="button"
+          className="app-shell__sidebar-toggle"
+          onClick={toggleSidebar}
+          aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.9" />
+            <rect x="6" y="6" width="4" height="12" rx="1.2" fill="currentColor" />
+            <rect x="13" y="6" width="5" height="12" rx="1.2" fill="currentColor" opacity="0.45" />
+          </svg>
+        </button>
         {needsKeyBanner && (
           <div className="app-shell__banner">
             <ApiKeySetupNotice scenario="missing-frontend-env" />
@@ -411,27 +493,5 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <Suspense fallback={<div className="loading-screen"><p>Loading…</p></div>}>
       <AppShellInner>{children}</AppShellInner>
     </Suspense>
-  );
-}
-
-function SidebarIcon({ tab }: { tab: NavKey }) {
-  switch (tab) {
-    case "profile":
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx="12" cy="7" r="4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
-    default:
-      return null;
-  }
-}
-
-function SidebarLogoutIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }

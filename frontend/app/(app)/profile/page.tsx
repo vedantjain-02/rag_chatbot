@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiKeySetupNotice } from "@/components/ApiKeySetupNotice";
 import {
   apiJson,
@@ -29,6 +29,7 @@ function isUnauthorized(ex: unknown): boolean {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [sessionOk, setSessionOk] = useState(false);
   const [snapshot, setSnapshot] = useState<UserSnapshot | null>(null);
 
@@ -38,6 +39,8 @@ export default function ProfilePage() {
 
   const [editName, setEditName] = useState("");
   const [editDob, setEditDob] = useState("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState<string | null>(null);
@@ -95,6 +98,18 @@ export default function ProfilePage() {
     }
   }, [sessionOk, loadProfile]);
 
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setSaveOk(null);
+  }
+
+  function handleAvatarClick() {
+    fileRef.current?.click();
+  }
+
   async function onSaveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaveErr(null);
@@ -105,12 +120,6 @@ export default function ProfilePage() {
       return;
     }
 
-    const form = e.currentTarget;
-    const fileInput = form.elements.namedItem(
-      "profile_picture",
-    ) as HTMLInputElement;
-    const file = fileInput.files?.[0];
-
     const fd = new FormData();
     if (editName.trim()) {
       fd.append("display_name", editName.trim());
@@ -118,8 +127,8 @@ export default function ProfilePage() {
     if (editDob) {
       fd.append("dob", editDob);
     }
-    if (file) {
-      fd.append("profile_picture", file);
+    if (selectedFile) {
+      fd.append("profile_picture", selectedFile);
     }
 
     setSaveBusy(true);
@@ -137,8 +146,10 @@ export default function ProfilePage() {
         profile_image_url: res.profile_picture_url ?? null,
       });
       setSnapshot(getUserSnapshot());
-      setSaveOk("Profile saved.");
-      fileInput.value = "";
+      setSaveOk("Profile updated.");
+      setSelectedFile(null);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
     } catch (ex) {
       if (isUnauthorized(ex)) {
         handleAuthFailure();
@@ -153,7 +164,7 @@ export default function ProfilePage() {
   if (!sessionOk) {
     return (
       <div className="loading-screen">
-        <p>Loading…</p>
+        <p>Loading...</p>
       </div>
     );
   }
@@ -161,135 +172,130 @@ export default function ProfilePage() {
   const display =
     profile?.display_name ||
     snapshot?.display_name ||
-    snapshot?.email ||
+    snapshot?.email?.split("@")[0] ||
     "there";
+  const email = profile?.email || snapshot?.email || "";
+  const avatarSrc =
+    previewUrl ||
+    snapshot?.profile_image_url ||
+    profile?.profile_picture_url ||
+    null;
+  const avatarLetter = display.charAt(0).toUpperCase();
 
   return (
     <div className="profile-page">
-      <header className="page-screen-header">
-        <h1 className="page-screen-header__title">Profile</h1>
-        <p className="muted">Signed in as {display}. Update your details below.</p>
-        <div className="pill-row">
-          <span className="pill pill-blue">JWT session</span>
-          {snapshot?.roles?.length ? (
-            <span className="pill pill-gray">{snapshot.roles.join(", ")}</span>
-          ) : null}
-        </div>
-      </header>
-
-      <div className="profile-page__grid">
-        <section className="card" aria-labelledby="profile-heading">
-          <div className="section-head">
-            <h2 id="profile-heading">Your profile</h2>
-            <button
-              type="button"
-              className="btn-ghost btn-sm"
-              onClick={() => void loadProfile()}
-              disabled={loadingProfile}
-            >
-              {loadingProfile ? "Loading…" : "Refresh"}
-            </button>
+      <div className="profile-page__card">
+        {profileErr && (
+          <div className="profile-page__error" role="alert">
+            <p>{profileErr}</p>
+            {looksLikeApiKeyErrorMessage(profileErr) && (
+              <ApiKeySetupNotice scenario="backend-rejected" variant="compact" />
+            )}
           </div>
+        )}
 
-          {profileErr && (
-            <>
-              <p className="error" role="alert">
-                {profileErr}
-              </p>
-              {looksLikeApiKeyErrorMessage(profileErr) && (
-                <ApiKeySetupNotice scenario="backend-rejected" variant="compact" />
-              )}
-            </>
+        {loadingProfile && !profile && !profileErr && (
+          <div className="profile-page__loading">Loading profile...</div>
+        )}
+
+        {/* Avatar */}
+        <div className="profile-page__avatar-wrap" onClick={handleAvatarClick} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleAvatarClick(); }}>
+          {avatarSrc ? (
+            <img src={avatarSrc} alt="" className="profile-page__avatar-img" />
+          ) : (
+            <span className="profile-page__avatar-letter">{avatarLetter}</span>
           )}
+          <div className="profile-page__avatar-overlay">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+            <span>Change photo</span>
+          </div>
+        </div>
 
-          {loadingProfile && !profile && !profileErr && (
-            <p className="muted">Loading profile…</p>
-          )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={handleFileSelect}
+          className="profile-page__file-input"
+          name="profile_picture"
+        />
 
-          {profile && (
-            <dl className="profile-dl">
-              <dt>Email</dt>
-              <dd>{profile.email ?? "—"}</dd>
+        {/* Name and email */}
+        <h1 className="profile-page__name">{display}</h1>
+        <p className="profile-page__email">{email}</p>
 
-              <dt>Display name</dt>
-              <dd>{profile.display_name || "—"}</dd>
-
-              <dt>Date of birth</dt>
-              <dd>{profile.dob ?? "Not set"}</dd>
-
-              <dt>Avatar</dt>
-              <dd>
-                {profile.profile_picture_url ? (
-                  <img
-                    src={profile.profile_picture_url}
-                    alt=""
-                    className="avatar-thumb"
-                    width={52}
-                    height={52}
-                  />
-                ) : (
-                  "No photo"
-                )}
-              </dd>
-            </dl>
-          )}
-        </section>
-
-        <section className="card" aria-labelledby="edit-heading">
-          <h2 id="edit-heading">Edit profile</h2>
-          <p className="muted">
-            Saves to <code>PATCH /users/update-profile</code> on your FastAPI backend.
-          </p>
-
-          <form className="profile-edit-form" onSubmit={onSaveProfile}>
-            <label htmlFor="edit-display_name">Display name</label>
+        {/* Form card */}
+        <form className="profile-page__form" onSubmit={onSaveProfile}>
+          <div className="profile-page__field">
+            <label htmlFor="edit-display_name" className="profile-page__label">Display name</label>
             <input
               id="edit-display_name"
               name="display_name"
               type="text"
+              className="profile-page__input"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               autoComplete="name"
+              placeholder="Your display name"
             />
+          </div>
 
-            <label htmlFor="edit-dob">Date of birth</label>
+          <div className="profile-page__field">
+            <label htmlFor="edit-dob" className="profile-page__label">Date of birth</label>
             <input
               id="edit-dob"
               name="dob"
               type="date"
+              className="profile-page__input"
               value={editDob}
               onChange={(e) => setEditDob(e.target.value)}
             />
+          </div>
 
-            <label htmlFor="edit-photo">Profile photo (JPEG, PNG, WebP)</label>
-            <input
-              id="edit-photo"
-              name="profile_picture"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-            />
-
-            <button type="submit" className="primary" disabled={saveBusy}>
-              {saveBusy ? "Saving…" : "Save changes"}
-            </button>
-          </form>
-
-          {saveOk && (
-            <p className="notice" role="status">
-              {saveOk}
-            </p>
+          {previewUrl && (
+            <div className="profile-page__preview-row">
+              <span className="profile-page__label">Selected photo</span>
+              <div className="profile-page__preview-chip">
+                <img src={previewUrl} alt="" className="profile-page__preview-thumb" />
+                <span className="profile-page__preview-name">{selectedFile?.name}</span>
+                <button
+                  type="button"
+                  className="profile-page__preview-remove"
+                  onClick={() => {
+                    setSelectedFile(null);
+                    if (previewUrl) URL.revokeObjectURL(previewUrl);
+                    setPreviewUrl(null);
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
           )}
-          {saveErr && (
-            <>
-              <p className="error" role="alert">
-                {saveErr}
-              </p>
-              {looksLikeApiKeyErrorMessage(saveErr) && (
-                <ApiKeySetupNotice scenario="backend-rejected" variant="compact" />
-              )}
-            </>
-          )}
-        </section>
+
+          <button type="submit" className="profile-page__save-btn" disabled={saveBusy}>
+            {saveBusy ? (
+              <span className="profile-page__save-spinner" />
+            ) : (
+              "Save changes"
+            )}
+          </button>
+        </form>
+
+        {saveOk && (
+          <p className="profile-page__success" role="status">{saveOk}</p>
+        )}
+        {saveErr && (
+          <div className="profile-page__error" role="alert">
+            <p>{saveErr}</p>
+            {looksLikeApiKeyErrorMessage(saveErr) && (
+              <ApiKeySetupNotice scenario="backend-rejected" variant="compact" />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

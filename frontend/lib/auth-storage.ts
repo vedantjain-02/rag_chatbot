@@ -40,10 +40,11 @@ export function getUserSnapshot(): UserSnapshot | null {
 export function mergeUserSnapshot(patch: Partial<UserSnapshot>): void {
   const cur = getUserSnapshot();
   if (!cur) return;
-  localStorage.setItem(
-    USER_SNAPSHOT_KEY,
-    JSON.stringify({ ...cur, ...patch }),
-  );
+  const next = { ...cur, ...patch };
+  localStorage.setItem(USER_SNAPSHOT_KEY, JSON.stringify(next));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("user-snapshot-updated", { detail: next }));
+  }
 }
 
 export function getCurrentSessionId(): number | null {

@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useId, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { ChatComposer } from "@/components/chat/ChatComposer";
+import { DotSquaresBrandLogo } from "@/components/DotSquaresBrandLogo";
 import {
   apiErrorMessage,
   isForbiddenApiKeyError,
@@ -23,11 +24,32 @@ import {
 import type { ChatMessage } from "@/lib/types/chat";
 import { mapMessageRows } from "@/lib/types/chat";
 
+const ALL_SUGGESTED_PROMPTS = [
+  "What are the company policies?",
+  "Explain the leave and attendance policy.",
+  "What is the work from home policy?",
+  "Who is the CEO and Founder of DotSquares?",
+  "Who are the Directors of DotSquares?",
+  "Tell me about DotSquares.",
+  "What services does DotSquares provide?",
+  "Explain the company code of conduct.",
+  "What is the privacy policy?",
+  "What are the information security policies?",
+  "Explain the employee onboarding process.",
+  "What are the project management guidelines?",
+  "What coding standards should developers follow?",
+  "What is the QA process at DotSquares?",
+  "What are the HR policies?",
+  "What are the company values?",
+  "Explain the appraisal process.",
+  "What are the office working hours?",
+  "What is the leave approval process?",
+];
+
 function DashboardInner() {
   const inputId = useId();
   const listRef = useRef<HTMLDivElement>(null);
   const busyRef = useRef(false);
-  const newChatRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionParam = searchParams?.get("session");
@@ -42,6 +64,11 @@ function DashboardInner() {
   const [booting, setBooting] = useState(true);
   const [pendingAssistantId, setPendingAssistantId] = useState<string | null>(null);
 
+  const suggestedPrompts = useMemo(() => {
+    const shuffled = [...ALL_SUGGESTED_PROMPTS].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 6);
+  }, []);
+
   const scrollToBottom = useCallback(() => {
     queueMicrotask(() => {
       listRef.current?.scrollTo({
@@ -50,49 +77,6 @@ function DashboardInner() {
       });
     });
   }, []);
-
-  useEffect(() => {
-    function handleNewChatRequest() {
-      if (newChatRef.current) return;
-      newChatRef.current = true;
-
-      setMessages([]);
-      setError(null);
-      setInput("");
-      setPendingAssistantId(null);
-      if (busyRef.current) {
-        setBusy(false);
-        busyRef.current = false;
-      }
-
-      createChatSession({ domain_key: "rera" })
-        .then((created) => {
-          if (!created?.session) {
-            setError("Could not start a new chat session.");
-            return;
-          }
-          setCurrentSessionId(created.session.id);
-          setSessionId(created.session.id);
-          setSessionTitle(created.session.title);
-          setDomainKey(created.session.domain_key);
-          router.push(`/dashboard?session=${created.session.id}`, { scroll: false });
-          window.dispatchEvent(new CustomEvent("chat-sessions-changed"));
-          requestAnimationFrame(() => {
-            document.getElementById(inputId)?.focus();
-          });
-        })
-        .catch((e: unknown) => {
-          setError(apiErrorMessage(e));
-        })
-        .finally(() => {
-          newChatRef.current = false;
-        });
-    }
-    window.addEventListener("new-chat-requested", handleNewChatRequest);
-    return () => {
-      window.removeEventListener("new-chat-requested", handleNewChatRequest);
-    };
-  }, [router, inputId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -177,9 +161,9 @@ function DashboardInner() {
     };
   }, [sessionParam, router]);
 
-  async function sendQuestion(e: React.FormEvent) {
+  async function sendQuestion(e: React.FormEvent, overrideText?: string) {
     e.preventDefault();
-    const q = input.trim();
+    const q = (overrideText ?? input).trim();
     if (!q || busyRef.current || sessionId == null) return;
     busyRef.current = true;
 
@@ -240,6 +224,11 @@ function DashboardInner() {
     }
   }
 
+  function handleSuggestedPrompt(prompt: string) {
+    setInput(prompt);
+    sendQuestion({ preventDefault: () => {} } as React.FormEvent, prompt);
+  }
+
   if (booting) {
     return (
       <div className="chat-page">
@@ -248,27 +237,17 @@ function DashboardInner() {
     );
   }
 
+  const showWelcome = messages.length === 0;
+
   return (
     <div className="chat-page">
-      <header className="chat-page__header">
-        <div className="chat-page__badges">
-          <span className="chat-badge chat-badge--agents">Multi-agent RAG</span>
-          <span className="chat-badge">{domainKey}</span>
-        </div>
-        <h1 className="chat-page__title">{sessionTitle || "RERA project assistant"}</h1>
-        <p className="chat-page__subtitle muted">
-          LangGraph agents analyze your conversation history, retrieve records, grade relevance,
-          and synthesize answers from the Document knowledge base.
-        </p>
-      </header>
-
       {error ? (
         <p className="error" role="alert">
           {error}
         </p>
       ) : null}
 
-      <div className="chat-page__surface card">
+      <div className="chat-page__surface">
         <div
           className="chat-thread"
           ref={listRef}
@@ -276,17 +255,30 @@ function DashboardInner() {
           aria-live="polite"
           aria-relevant="additions"
         >
-          {messages.length === 0 ? (
-            <div className="chat-empty">
-              <div className="chat-empty__icon" aria-hidden="true">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25">
-                  <path d="M12 3a9 9 0 019 9c0 5-4 9-9 11-5-2-9-6-9-11a9 9 0 019-9z" strokeLinejoin="round" />
-                  <path d="M9 11h6M9 15h6" strokeLinecap="round" />
-                </svg>
+          {showWelcome ? (
+            <div className="chat-page__welcome">
+              <DotSquaresBrandLogo />
+              <h1>How can I help you today?</h1>
+              <p>
+                Ask me anything about Dotsquares projects, policies, or achivements.
+              </p>
+              <div className="suggested-prompts">
+                {suggestedPrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    className="suggested-prompt"
+                    onClick={() => handleSuggestedPrompt(prompt)}
+                  >
+                    <span className="suggested-prompt__icon" aria-hidden="true">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                    </span>
+                    {prompt}
+                  </button>
+                ))}
               </div>
-              <h2 className="chat-empty__title">Ask About the Company Policies</h2>
-              <p className="chat-empty__text muted">
-                Try follow-ups like &ldquo;What is the company&rsquo;s code of conduct?&rdquo;              </p>
             </div>
           ) : (
             <ul className="chat-messages">
@@ -308,7 +300,7 @@ function DashboardInner() {
           onSubmit={sendQuestion}
           busy={busy}
           disabled={sessionId == null}
-          placeholder="Ask anything"
+          placeholder="Message DotSquares AI…"
         />
       </div>
     </div>

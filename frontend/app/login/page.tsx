@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, Suspense } from "react";
 import { ApiKeySetupNotice } from "@/components/ApiKeySetupNotice";
+import { DotSquaresBrandLogo } from "@/components/DotSquaresBrandLogo";
 import { PasswordInput } from "@/components/PasswordInput";
 import {
   apiJson,
@@ -161,11 +162,8 @@ export default function LoginPage() {
       <div className="auth-inner">
         {!hasKey && <ApiKeySetupNotice scenario="missing-frontend-env" />}
 
-        <div className="auth-logo">
-          <span className="auth-logo-mark" aria-hidden="true">
-            ◆
-          </span>
-          <span>RAG Chatbot</span>
+        <div className="auth-logo brand-logo brand-logo--center">
+          <DotSquaresBrandLogo />
         </div>
 
         <Suspense fallback={<div className="auth-card">Loading login…</div>}>
