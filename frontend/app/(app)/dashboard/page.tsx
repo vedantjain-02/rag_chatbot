@@ -50,7 +50,10 @@ function DashboardInner() {
   const inputId = useId();
   const listRef = useRef<HTMLDivElement>(null);
   const busyRef = useRef(false);
+  const creatingRef = useRef(false);
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const searchParams = useSearchParams();
   const sessionParam = searchParams?.get("session");
 
@@ -122,11 +125,24 @@ function DashboardInner() {
 
       const storedSid = getCurrentSessionId();
       if (storedSid !== null) {
-        router.replace(`/dashboard?session=${storedSid}`, { scroll: false });
+        routerRef.current.replace(`/dashboard?session=${storedSid}`, { scroll: false });
         if (!cancelled) setBooting(false);
         return;
       }
 
+      if (creatingRef.current) {
+        if (!cancelled) setBooting(false);
+        return;
+      }
+
+      const doubleCheckSid = getCurrentSessionId();
+      if (doubleCheckSid !== null) {
+        routerRef.current.replace(`/dashboard?session=${doubleCheckSid}`, { scroll: false });
+        if (!cancelled) setBooting(false);
+        return;
+      }
+
+      creatingRef.current = true;
       try {
         const created = await createChatSession({ domain_key: "rera" });
         if (cancelled) return;
@@ -139,7 +155,7 @@ function DashboardInner() {
           setDomainKey(created.session.domain_key);
           setMessages([]);
           window.dispatchEvent(new CustomEvent("chat-sessions-changed"));
-          router.replace(`/dashboard?session=${created.session.id}`, {
+          routerRef.current.replace(`/dashboard?session=${created.session.id}`, {
             scroll: false,
           });
         }
@@ -153,13 +169,14 @@ function DashboardInner() {
           setError(apiErrorMessage(e));
         }
       } finally {
+        creatingRef.current = false;
         if (!cancelled) setBooting(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [sessionParam, router]);
+  }, [sessionParam]);
 
   async function sendQuestion(e: React.FormEvent, overrideText?: string) {
     e.preventDefault();

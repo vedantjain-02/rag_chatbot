@@ -1,7 +1,7 @@
 import logging
-
+from chatbot.graph.graph import graph
 from sqlalchemy.orm import Session
-
+from chatbot.memory.history_loader import HistoryLoader
 from src.routes.chatbot.crud.chat_session import (
     create_session,
     get_session,
@@ -15,7 +15,6 @@ from src.routes.chatbot.crud.chat_message import (
     create_message,
     get_messages,
 )
-from chatbot.chatbot_service import ChatbotService
 
 logger = logging.getLogger(__name__)
 
@@ -129,14 +128,28 @@ def send_chat_message(
         db.flush()
 
     try:
-        chatbot = ChatbotService()
-        logger.debug("[send_chat_message] ChatbotService instantiated, calling ask()")
-        answer = chatbot.ask(content)
-        logger.debug("[send_chat_message] ask() returned, type=%s", type(answer).__name__)
+        history_loader = HistoryLoader(db)
+        history = history_loader.load(
+            session_id=session.id,
+        )
 
+        logger.debug("Loaded %d history messages", len(history))
+        logger.debug("[send_chat_message] Invoking LangGraph")
+
+        answer = graph.invoke(
+            {
+                "question": content,
+                "history": history,
+            }
+        )
+
+        logger.debug(
+            "[send_chat_message] LangGraph returned, type=%s",
+            type(answer).__name__,
+        )
     except Exception as e:
         logger.error(
-            "chatbot.ask() failed for session %s: %s",
+            "LangGraph failed for session %s: %s",
             session_id,
             e,
             exc_info=True,

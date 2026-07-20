@@ -16,4 +16,8 @@ EMBEDDING_MODEL = "nomic-embed-text"
 OLLAMA_TIMEOUT_SECONDS = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "300"))
 
 # Retrieval
-TOP_K = 5
+VECTOR_TOP_K = 10
+
+BM25_TOP_K = 10
+
+FINAL_TOP_K = 5

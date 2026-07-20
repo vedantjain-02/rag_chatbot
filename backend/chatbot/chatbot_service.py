@@ -1,9 +1,9 @@
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
-
+from .memory.prompt_context import PromptContext
 from .config import LLM_MODEL, OLLAMA_TIMEOUT_SECONDS
 from .prompts import SYSTEM_PROMPT
-from .vector_store import get_retriever
+from .retrieval.pipeline import RetrievalPipeline
 
 
 class ChatbotService:
@@ -20,7 +20,7 @@ class ChatbotService:
             return
         ChatbotService._initialized = True
 
-        self.retriever = get_retriever()
+        self.pipeline = RetrievalPipeline()
 
         self.llm = ChatOllama(
             model=LLM_MODEL,
@@ -34,13 +34,17 @@ class ChatbotService:
 
         self.chain = self.prompt | self.llm
 
-    def ask(self, question: str):
+    def ask(
+    self,
+    question: str,
+    history=None,
+    ):
         import logging
         _log = logging.getLogger(__name__)
 
         try:
             _log.debug("[ask] Invoking retriever with question: %s", question[:80])
-            docs = self.retriever.invoke(question)
+            docs = self.pipeline.retrieve(question)
             _log.debug("[ask] Retriever returned %d docs", len(docs))
 
             if not docs:
@@ -56,15 +60,19 @@ class ChatbotService:
                         },
                     }
 
+            history_context = PromptContext.build(history)
             context = "\n\n".join(
                 doc.page_content for doc in docs
             )
             _log.debug("[ask] Context built (%d chars), invoking LLM chain", len(context))
 
-            response = self.chain.invoke({
+            response = self.chain.invoke(
+            {
+                "history": history_context,
                 "context": context,
-                "question": question
-            })
+                "question": question,
+            }
+            )
             _log.debug("[ask] LLM chain returned, response type=%s", type(response).__name__)
 
             chunks = []

@@ -1,8 +1,13 @@
+import logging
+import time
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from db.db_session import get_db
 from shared.auth.jwt_auth_function import jwt_auth
+
+logger = logging.getLogger(__name__)
 
 from src.routes.chatbot.controllers.session_controller import (
     create_chat_session,
@@ -23,6 +28,7 @@ def create_session(
     current_user: dict = Depends(jwt_auth),
 ):
     user_id = current_user.get("user_id")
+    t0 = time.monotonic()
 
     if not user_id:
         raise HTTPException(
@@ -35,6 +41,16 @@ def create_session(
         user_id=user_id,
         title=request.title,
         domain_key=request.domain_key,
+    )
+
+    elapsed_ms = (time.monotonic() - t0) * 1000
+    logger.info(
+        "SESSION_CREATE user_id=%s session_id=%s title=%r domain_key=%r elapsed_ms=%.1f",
+        user_id,
+        session.id,
+        session.title,
+        session.domain_key,
+        elapsed_ms,
     )
 
     return {

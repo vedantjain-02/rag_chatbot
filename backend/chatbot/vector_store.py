@@ -5,13 +5,12 @@ from .config import (
     CHROMA_DB_PATH,
     EMBEDDING_MODEL,
     OLLAMA_TIMEOUT_SECONDS,
-    TOP_K,
 )
 
 _vector_db = None
 
 
-def get_retriever():
+def get_retriever(k=10):
     import logging
     _log = logging.getLogger(__name__)
     global _vector_db
@@ -29,5 +28,5 @@ def get_retriever():
     else:
         _log.debug("[get_retriever] Using existing ChromaDB instance")
     return _vector_db.as_retriever(
-        search_kwargs={"k": TOP_K}
-    )
+    search_kwargs={"k": k}
+)

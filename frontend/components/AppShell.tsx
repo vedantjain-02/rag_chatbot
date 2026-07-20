@@ -47,6 +47,8 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const renameRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const routerRef = useRef(router);
+  routerRef.current = router;
 
   const activeSessionId = getActiveSessionId(
     pathname ?? "",
@@ -70,12 +72,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
         ? pathname
         : "/dashboard";
     if (!t) {
-      router.replace(`/login?next=${encodeURIComponent(next)}`);
+      routerRef.current.replace(`/login?next=${encodeURIComponent(next)}`);
       return;
     }
     setSnapshot(getUserSnapshot());
     setReady(true);
-  }, [router, pathname]);
+  }, [pathname]);
 
   useEffect(() => {
     if (!ready) return;

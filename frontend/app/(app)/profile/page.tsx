@@ -44,6 +44,7 @@ export default function ProfilePage() {
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const t = getAccessToken();
@@ -53,6 +54,7 @@ export default function ProfilePage() {
     }
     setSessionOk(true);
     setSnapshot(getUserSnapshot());
+    requestAnimationFrame(() => setMounted(true));
   }, [router]);
 
   const handleAuthFailure = useCallback(() => {
@@ -110,6 +112,21 @@ export default function ProfilePage() {
     fileRef.current?.click();
   }
 
+  function handleCancel() {
+    setEditName(profile?.display_name?.trim() || "");
+    setEditDob(profile?.dob ? String(profile.dob).slice(0, 10) : "");
+    setSelectedFile(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setSaveErr(null);
+    setSaveOk(null);
+  }
+
+  const hasChanges =
+    editName.trim() !== (profile?.display_name?.trim() || "") ||
+    editDob !== (profile?.dob ? String(profile.dob).slice(0, 10) : "") ||
+    selectedFile !== null;
+
   async function onSaveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaveErr(null);
@@ -146,7 +163,7 @@ export default function ProfilePage() {
         profile_image_url: res.profile_picture_url ?? null,
       });
       setSnapshot(getUserSnapshot());
-      setSaveOk("Profile updated.");
+      setSaveOk("Profile updated successfully.");
       setSelectedFile(null);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
@@ -169,22 +186,30 @@ export default function ProfilePage() {
     );
   }
 
-  const display =
+  const displayName =
     profile?.display_name ||
     snapshot?.display_name ||
     snapshot?.email?.split("@")[0] ||
-    "there";
+    "User";
   const email = profile?.email || snapshot?.email || "";
   const avatarSrc =
     previewUrl ||
     snapshot?.profile_image_url ||
     profile?.profile_picture_url ||
     null;
-  const avatarLetter = display.charAt(0).toUpperCase();
+  const avatarLetter = displayName.charAt(0).toUpperCase();
 
   return (
-    <div className="profile-page">
+    <div className={`profile-page ${mounted ? "profile-page--visible" : ""}`}>
       <div className="profile-page__card">
+        {/* Loading state */}
+        {loadingProfile && !profile && !profileErr && (
+          <div className="profile-page__loading">
+            <span className="profile-page__loading-spinner" />
+          </div>
+        )}
+
+        {/* Error */}
         {profileErr && (
           <div className="profile-page__error" role="alert">
             <p>{profileErr}</p>
@@ -194,59 +219,67 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {loadingProfile && !profile && !profileErr && (
-          <div className="profile-page__loading">Loading profile...</div>
-        )}
-
-        {/* Avatar */}
-        <div className="profile-page__avatar-wrap" onClick={handleAvatarClick} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleAvatarClick(); }}>
-          {avatarSrc ? (
-            <img src={avatarSrc} alt="" className="profile-page__avatar-img" />
-          ) : (
-            <span className="profile-page__avatar-letter">{avatarLetter}</span>
-          )}
-          <div className="profile-page__avatar-overlay">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
-            <span>Change photo</span>
-          </div>
+        {/* Avatar section */}
+        <div className="profile-page__avatar-section">
+          <button
+            type="button"
+            className="profile-page__avatar-btn"
+            onClick={handleAvatarClick}
+            aria-label="Change profile photo"
+          >
+            {avatarSrc ? (
+              <img src={avatarSrc} alt="" className="profile-page__avatar-img" />
+            ) : (
+              <span className="profile-page__avatar-letter">{avatarLetter}</span>
+            )}
+            <span className="profile-page__avatar-camera">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            </span>
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileSelect}
+            className="profile-page__file-input"
+            name="profile_picture"
+          />
         </div>
 
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={handleFileSelect}
-          className="profile-page__file-input"
-          name="profile_picture"
-        />
-
-        {/* Name and email */}
-        <h1 className="profile-page__name">{display}</h1>
+        {/* User info */}
+        <h1 className="profile-page__name">{displayName}</h1>
         <p className="profile-page__email">{email}</p>
 
-        {/* Form card */}
+        {/* Separator */}
+        <div className="profile-page__divider" />
+
+        {/* Form */}
         <form className="profile-page__form" onSubmit={onSaveProfile}>
           <div className="profile-page__field">
-            <label htmlFor="edit-display_name" className="profile-page__label">Display name</label>
+            <label htmlFor="profile-display-name" className="profile-page__label">
+              Display Name
+            </label>
             <input
-              id="edit-display_name"
+              id="profile-display-name"
               name="display_name"
               type="text"
               className="profile-page__input"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               autoComplete="name"
-              placeholder="Your display name"
+              placeholder="Enter your display name"
             />
           </div>
 
           <div className="profile-page__field">
-            <label htmlFor="edit-dob" className="profile-page__label">Date of birth</label>
+            <label htmlFor="profile-dob" className="profile-page__label">
+              Date of Birth
+            </label>
             <input
-              id="edit-dob"
+              id="profile-dob"
               name="dob"
               type="date"
               className="profile-page__input"
@@ -255,42 +288,61 @@ export default function ProfilePage() {
             />
           </div>
 
-          {previewUrl && (
-            <div className="profile-page__preview-row">
-              <span className="profile-page__label">Selected photo</span>
-              <div className="profile-page__preview-chip">
-                <img src={previewUrl} alt="" className="profile-page__preview-thumb" />
-                <span className="profile-page__preview-name">{selectedFile?.name}</span>
-                <button
-                  type="button"
-                  className="profile-page__preview-remove"
-                  onClick={() => {
-                    setSelectedFile(null);
-                    if (previewUrl) URL.revokeObjectURL(previewUrl);
-                    setPreviewUrl(null);
-                  }}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          )}
+          <div className="profile-page__field">
+            <label htmlFor="profile-email" className="profile-page__label">
+              Email
+            </label>
+            <input
+              id="profile-email"
+              type="email"
+              className="profile-page__input profile-page__input--readonly"
+              value={email}
+              readOnly
+              tabIndex={-1}
+            />
+          </div>
 
-          <button type="submit" className="profile-page__save-btn" disabled={saveBusy}>
-            {saveBusy ? (
-              <span className="profile-page__save-spinner" />
-            ) : (
-              "Save changes"
-            )}
-          </button>
+          {/* Actions */}
+          <div className="profile-page__actions">
+            <button
+              type="button"
+              className="profile-page__cancel-btn"
+              onClick={handleCancel}
+              disabled={saveBusy || !hasChanges}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="profile-page__save-btn"
+              disabled={saveBusy || !hasChanges}
+            >
+              {saveBusy ? (
+                <span className="profile-page__save-spinner" />
+              ) : (
+                "Save Changes"
+              )}
+            </button>
+          </div>
         </form>
 
+        {/* Feedback */}
         {saveOk && (
-          <p className="profile-page__success" role="status">{saveOk}</p>
+          <div className="profile-page__toast profile-page__toast--success" role="status">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            {saveOk}
+          </div>
         )}
         {saveErr && (
-          <div className="profile-page__error" role="alert">
-            <p>{saveErr}</p>
+          <div className="profile-page__toast profile-page__toast--error" role="alert">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+            {saveErr}
             {looksLikeApiKeyErrorMessage(saveErr) && (
               <ApiKeySetupNotice scenario="backend-rejected" variant="compact" />
             )}
