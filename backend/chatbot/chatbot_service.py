@@ -48,17 +48,19 @@ class ChatbotService:
             _log.debug("[ask] Retriever returned %d docs", len(docs))
 
             if not docs:
-                _log.debug("[ask] No docs found, returning fallback")
+                _log.debug("[ask] No docs found, switching to WEB")
+
                 return {
-                        "success": False,
-                        "answer": "I couldn't find this information in the company policy document.",
-                        "sources": {
-                            "chunks": [],
-                            "agent_steps": [],
-                            "history_summary": None,
-                            "rewritten_query": None,
-                        },
-                    }
+                    "success": False,
+                    "fallback_to_web": True,
+                    "answer": "",
+                    "sources": {
+                        "chunks": [],
+                        "agent_steps": [],
+                        "history_summary": None,
+                        "rewritten_query": None,
+                    },
+                }
 
             history_context = PromptContext.build(history)
             context = "\n\n".join(
@@ -73,6 +75,27 @@ class ChatbotService:
                 "question": question,
             }
             )
+            answer = response.content.strip()
+
+            if (
+                answer == ""
+                or "i couldn't find" in answer.lower()
+                or "not found" in answer.lower()
+                or "don't have enough information" in answer.lower()
+            ):
+                _log.debug("[ask] LLM could not answer. Switching to WEB.")
+
+                return {
+                    "success": False,
+                    "fallback_to_web": True,
+                    "answer": "",
+                    "sources": {
+                        "chunks": [],
+                        "agent_steps": [],
+                        "history_summary": None,
+                        "rewritten_query": None,
+                    },
+                }
             _log.debug("[ask] LLM chain returned, response type=%s", type(response).__name__)
 
             chunks = []
@@ -100,7 +123,7 @@ class ChatbotService:
             _log.debug("[ask] Returning success response with %d chunks", len(chunks))
             return {
                     "success": True,
-                    "answer": response.content,
+                    "answer": answer,
                     "sources": {
                         "chunks": chunks,
                         "agent_steps": [],
@@ -113,13 +136,14 @@ class ChatbotService:
             _log.error("[ask] Exception: %s", e, exc_info=True)
 
             return {
-                    "success": False,
-                    "answer": "Something went wrong while processing your request.",
-                    "error": str(e),
-                    "sources": {
-                        "chunks": [],
-                        "agent_steps": [],
-                        "history_summary": None,
-                        "rewritten_query": None,
-                    },
-                }
+                "success": False,
+                "fallback_to_web": True,
+                "answer": "",
+                "error": str(e),
+                "sources": {
+                    "chunks": [],
+                    "agent_steps": [],
+                    "history_summary": None,
+                    "rewritten_query": None,
+                },
+            }

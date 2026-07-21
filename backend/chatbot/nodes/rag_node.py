@@ -21,4 +21,18 @@ def rag_node(state):
     state["sources"] = result.get("sources")
     state["error"] = result.get("error")
 
+    # -----------------------------
+    # Fallback to Web
+    # -----------------------------
+    if (
+        not result.get("success")
+        or result.get("fallback_to_web", False)
+    ):
+        logger.debug("RAG could not answer. Switching to WEB.")
+
+        state["fallback_to_web"] = True
+
+    else:
+        state["fallback_to_web"] = False
+
     return state

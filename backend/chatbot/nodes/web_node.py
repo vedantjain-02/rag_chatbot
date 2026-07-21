@@ -11,7 +11,10 @@ def web_node(state):
 
     result = web.run(state["question"])
 
-    state["answer"] = result["answer"]
-    state["sources"] = result["sources"]
+    state["success"] = result.get("success", True)
+    state["fallback_to_web"] = False
+    state["answer"] = result.get("answer")
+    state["sources"] = result.get("sources")
+    state["error"] = result.get("error")
 
     return state

@@ -53,9 +53,22 @@ builder.add_conditional_edges(
 )
 
 # End
-builder.add_edge(
+def rag_route(state):
+    if state.get("fallback_to_web", False):
+        logger.debug("RAG requested WEB fallback")
+        return "web"
+
+    logger.debug("RAG completed successfully")
+    return "end"
+
+
+builder.add_conditional_edges(
     "rag",
-    END,
+    rag_route,
+    {
+        "web": "web",
+        "end": END,
+    },
 )
 
 builder.add_edge(
