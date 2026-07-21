@@ -408,7 +408,7 @@ GitHub:
 https://github.com/vedantjain-02
 
 LinkedIn:
-(Add your LinkedIn URL)
+linkedin.com/in/vedantjain1802
 
 ---
 
