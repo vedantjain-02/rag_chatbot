@@ -408,7 +408,7 @@ GitHub:
 https://github.com/vedantjain-02
 
 LinkedIn:
-linkedin.com/in/vedantjain1802
+https://linkedin.com/in/vedantjain1802
 
 ---
 
