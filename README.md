@@ -1,44 +1,124 @@
-# 🤖 Enterprise RAG Chatbot
+# 🤖 Enterprise Multi-Agent RAG Chatbot
 
-An enterprise-grade Retrieval-Augmented Generation (RAG) chatbot built to provide accurate, context-aware responses from internal company documents. The application combines FastAPI, Next.js, ChromaDB, PostgreSQL, and Google Gemini to deliver an intelligent document-based conversational experience.
+> An enterprise-grade AI chatbot built using **FastAPI, LangGraph, Ollama, ChromaDB, PostgreSQL, and Next.js** that delivers accurate, context-aware responses from internal company documents using Hybrid Retrieval and intelligent routing.
 
----
-
-## 📌 Overview
-
-This chatbot enables users to ask natural language questions and receive AI-generated responses grounded in the organization's knowledge base. Instead of relying solely on a language model, it retrieves relevant information from indexed documents before generating answers, improving both accuracy and reliability.
-
----
-
-## ✨ Features
-
-- 🔐 JWT-based User Authentication
-- 💬 AI-powered conversational chatbot
-- 📄 PDF document ingestion
-- 🔎 Semantic document search using vector embeddings
-- 🧠 Retrieval-Augmented Generation (RAG)
-- 🗂️ Chat session management
-- 📝 Chat history storage
-- ⚡ FastAPI REST APIs
-- 🎨 Modern Next.js frontend
-- 📱 Responsive user interface
+![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green?logo=fastapi)
+![Next.js](https://img.shields.io/badge/Next.js-Frontend-black?logo=next.js)
+![LangGraph](https://img.shields.io/badge/LangGraph-Multi--Agent-orange)
+![Ollama](https://img.shields.io/badge/Ollama-Local%20LLM-blue)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
 ---
 
-## 🛠 Tech Stack
+# 📌 Overview
 
-### Backend
-- FastAPI
+Enterprise Multi-Agent RAG Chatbot is an AI-powered assistant designed for organizations to answer employee queries using internal company documents.
+
+Instead of relying only on a Large Language Model, the chatbot first retrieves relevant information using **Hybrid Retrieval (BM25 + Vector Search)**, reranks the retrieved documents using an LLM, and generates grounded responses through **Ollama**.
+
+The application also includes an intelligent **Supervisor Agent** that automatically decides whether a question should be answered using the internal knowledge base (RAG) or live web search.
+
+---
+
+# ✨ Features
+
+## 🤖 AI Features
+
+- ✅ Multi-Agent Architecture using LangGraph
+- ✅ Supervisor Agent for Intelligent Routing
+- ✅ RAG Agent
+- ✅ Web Search Agent
+- ✅ Automatic RAG → Web Fallback
+- ✅ Hybrid Retrieval (BM25 + Vector Search)
+- ✅ Query Rewriting
+- ✅ LLM Document Reranking
+- ✅ Local LLM using Ollama
+- ✅ Conversation History
+- ✅ Source Citations
+- ✅ Context-Aware Responses
+
+---
+
+## 🔐 Authentication
+
+- JWT Authentication
+- User Registration
+- User Login
+- Protected APIs
+
+---
+
+## 💬 Chat Features
+
+- Chat Sessions
+- Message History
+- New Chat Creation
+- Auto Chat Titles
+- Session Management
+
+---
+
+## 📄 Document Processing
+
+- PDF Document Loader
+- Text Chunking
+- Embedding Generation
+- ChromaDB Vector Storage
+- Hybrid Document Retrieval
+
+---
+
+# 🏗️ Architecture
+
+```
+                        User Question
+                              │
+                              ▼
+                     Supervisor Agent
+                              │
+                  ┌───────────┴───────────┐
+                  │                       │
+                  ▼                       ▼
+             RAG Agent               Web Agent
+                  │                       │
+                  ▼                       ▼
+      Hybrid Retriever             DuckDuckGo
+      (BM25 + Vector)
+                  │
+                  ▼
+          LLM Reranker
+                  │
+                  ▼
+             Ollama LLM
+                  │
+                  ▼
+          Final AI Response
+```
+
+---
+
+# ⚙️ Tech Stack
+
+## Backend
+
 - Python
+- FastAPI
 - SQLAlchemy
 - PostgreSQL
 - Alembic
-- ChromaDB
 - LangChain
-- Google Gemini API
+- LangGraph
+- Ollama
+- ChromaDB
+- Sentence Transformers
+- Rank-BM25
 - JWT Authentication
 
-### Frontend
+---
+
+## Frontend
+
 - Next.js
 - React
 - TypeScript
@@ -46,17 +126,39 @@ This chatbot enables users to ask natural language questions and receive AI-gene
 
 ---
 
-## 🏗️ Project Structure
+## AI Stack
+
+- LangGraph
+- LangChain
+- Ollama
+- Hybrid Retrieval
+- BM25
+- ChromaDB
+- Vector Search
+- Query Rewriting
+- LLM Reranking
+- DuckDuckGo Search
+
+---
+
+# 📂 Project Structure
 
 ```text
 rag_chatbot/
-│
+
 ├── backend/
+│
 │   ├── chatbot/
-│   ├── config/
-│   ├── db/
+│   │   ├── agents/
+│   │   ├── graph/
+│   │   ├── memory/
+│   │   ├── nodes/
+│   │   ├── retrieval/
+│   │   ├── prompts/
+│   │   └── chroma_db/
+│   │
 │   ├── src/
-│   ├── shared/
+│   ├── db/
 │   ├── alembic/
 │   ├── requirements.txt
 │   └── main.py
@@ -66,52 +168,70 @@ rag_chatbot/
 │   ├── components/
 │   ├── lib/
 │   ├── public/
-│   ├── package.json
-│   └── next.config.mjs
+│   └── package.json
 │
 └── README.md
 ```
 
 ---
 
-## ⚙️ Installation
+# 🚀 Installation
 
-### Clone Repository
+## Clone Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/your-username/rag_chatbot.git
+
 cd rag_chatbot
 ```
 
-### Backend Setup
+---
+
+## Backend Setup
 
 ```bash
 cd backend
 
 python -m venv venv
+```
 
-# Windows
+### Windows
+
+```bash
 venv\Scripts\activate
+```
 
-# Linux / macOS
+### Linux / macOS
+
+```bash
 source venv/bin/activate
+```
 
+Install dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-### Configure Environment Variables
+---
 
-Create a `.env` file inside the `backend` directory.
+## Configure Environment Variables
 
-Example:
+Create a `.env` file inside the backend folder.
 
 ```env
 DATABASE_URL=your_database_url
-GOOGLE_API_KEY=your_google_api_key
+
 JWT_SECRET_KEY=your_secret_key
+
+LLM_MODEL=llama3.2
+
+OLLAMA_TIMEOUT_SECONDS=300
 ```
 
-### Run Backend
+---
+
+## Run Backend
 
 ```bash
 uvicorn main:app --reload
@@ -119,7 +239,7 @@ uvicorn main:app --reload
 
 ---
 
-### Frontend Setup
+## Frontend Setup
 
 ```bash
 cd frontend
@@ -131,60 +251,165 @@ npm run dev
 
 ---
 
-## 📖 How It Works
+# 📖 How It Works
 
-1. Documents are uploaded to the knowledge base.
-2. Documents are converted into embeddings.
-3. Embeddings are stored in ChromaDB.
-4. User submits a question.
-5. Relevant document chunks are retrieved.
-6. Retrieved context is sent to Google Gemini.
-7. AI generates a grounded response.
+### Step 1
+
+User asks a question.
+
+↓
+
+### Step 2
+
+Supervisor Agent classifies the query.
+
+↓
+
+### Step 3
+
+If it is an internal company question
+
+↓
+
+Hybrid Retrieval
+
+- BM25 Search
+- Vector Search
+
+↓
+
+LLM Reranker
+
+↓
+
+Ollama
+
+↓
+
+Final Response
 
 ---
 
-## 🔒 Authentication
+If the question is related to current events or information outside the knowledge base
 
-- User Signup
-- User Login
-- JWT Access Token
-- Protected APIs
+↓
+
+DuckDuckGo Search
+
+↓
+
+Web Response
 
 ---
 
-## 📡 API Modules
+# 🔍 Retrieval Pipeline
 
-### Authentication
-- User Registration
+```
+Question
+
+↓
+
+Query Rewrite
+
+↓
+
+BM25 Search
+
++
+
+Vector Search
+
+↓
+
+Merge Results
+
+↓
+
+LLM Reranker
+
+↓
+
+Context Builder
+
+↓
+
+Ollama
+
+↓
+
+Answer
+```
+
+---
+
+# 📡 API Modules
+
+## Authentication
+
+- Register
 - Login
-
-### Chatbot
-- Ask Questions
-- Retrieve Responses
-- Chat Sessions
-- Message History
+- JWT Authentication
 
 ---
 
-## 📈 Future Enhancements
+## Chat
+
+- Create Chat Session
+- Send Message
+- Retrieve History
+- Delete Session
+- Rename Session
+
+---
+
+## AI
+
+- Hybrid Retrieval
+- Web Search
+- Source References
+- Multi-Agent Routing
+
+---
+
+# 📈 Future Enhancements
 
 - Streaming AI Responses
+- Multi-document Knowledge Base
 - OCR Support
-- Multi-document Search
-- Voice-based Interaction
-- Role-based Access Control
-- Feedback & Analytics
+- Voice Assistant
+- Tool Calling
+- Feedback System
+- Admin Dashboard
+- Analytics
+- Role Based Access Control
 
 ---
 
-## ⚠️ Disclaimer
+# 📷 Screenshots
 
-This project is intended for internal organizational use. Company-specific documents, branding, and confidential information are not included in this repository.
+> Add screenshots of:
+
+- Login Page
+- Chat Interface
+- Source Citation Panel
+- Chat History
+- AI Response
+- Web Search Response
 
 ---
 
-## 👨‍💻 Developed By
+# 👨‍💻 Developed By
 
-**Vedant Jain**
+## Vedant Jain
 
-Python Developer
+Python Backend Developer | AI Developer
+
+GitHub:
+https://github.com/vedantjain-02
+
+LinkedIn:
+(Add your LinkedIn URL)
+
+---
+
+## ⭐ If you like this project, don't forget to give it a Star!
