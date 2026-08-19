@@ -1,12 +1,12 @@
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_ollama import OllamaEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
-from config import (
+from chatbot.config import (
     DATA_PATH,
     CHROMA_DB_PATH,
-    EMBEDDING_MODEL
+    EMBEDDING_MODEL,
 )
 
 
@@ -34,8 +34,8 @@ def split_documents(documents):
 def create_vector_db(chunks):
     """Create Chroma Vector DB"""
 
-    embedding = OllamaEmbeddings(
-        model=EMBEDDING_MODEL
+    embedding = HuggingFaceEmbeddings(
+        model_name=EMBEDDING_MODEL,
     )
 
     Chroma.from_documents(

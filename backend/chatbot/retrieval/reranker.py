@@ -1,25 +1,28 @@
 import json
+import logging
 
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 
 from ..config import (
-    LLM_MODEL,
-    OLLAMA_TIMEOUT_SECONDS,
-    FINAL_TOP_K
+    GROQ_MODEL,
+    GROQ_API_KEY,
+    GROQ_BASE_URL,
+    FINAL_TOP_K,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class Reranker:
 
     def __init__(self):
 
-        self.llm = ChatOllama(
-            model=LLM_MODEL,
+        self.llm = ChatOpenAI(
+            model=GROQ_MODEL,
             temperature=0,
-            client_kwargs={
-                "timeout": OLLAMA_TIMEOUT_SECONDS,
-            },
+            api_key=GROQ_API_KEY,
+            base_url=GROQ_BASE_URL,
         )
 
         self.prompt = ChatPromptTemplate.from_template(
@@ -49,7 +52,7 @@ Do not explain anything.
         self.chain = self.prompt | self.llm
 
     def rerank(self, query, docs):
-        print("========== RERANKER RUNNING ==========")
+        logger.debug("[Reranker] Running with %d docs", len(docs))
         if len(docs) <= 1:
             return docs
 
@@ -71,20 +74,11 @@ Document {i}
                 "documents": "\n\n".join(document_text),
             }
         )
-        print("=" * 80)
-        print("Original Order")
-
-        for i, doc in enumerate(docs):
-            print(
-                f"{i}: Page={doc.metadata.get('page')} | Source={doc.metadata.get('source')}"
-            )
-
-        print("=" * 80)
 
         try:
 
             order = json.loads(response.content.strip())
-            print("LLM Ranking:", order)
+            logger.debug("[Reranker] LLM ranking: %s", order)
 
             ranked_docs = []
 
@@ -94,22 +88,9 @@ Document {i}
                     ranked_docs.append(docs[idx])
 
             if ranked_docs:
-
-                print()
-
-                print("Final Documents")
-
-                for i, doc in enumerate(ranked_docs[:FINAL_TOP_K]):
-
-                    print(
-                        i,
-                        "Page:",
-                        doc.metadata.get("page"),
-                    )
-
                 return ranked_docs[:FINAL_TOP_K]
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("[Reranker] Failed to parse LLM ranking: %s", e)
 
         return docs[:FINAL_TOP_K]

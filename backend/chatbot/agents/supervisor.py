@@ -1,22 +1,32 @@
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+import logging
 
-from chatbot.config import (
-    LLM_MODEL,
-    OLLAMA_TIMEOUT_SECONDS,
-)
+from chatbot.config import GROQ_MODEL, GROQ_API_KEY, GROQ_BASE_URL
+
+logger = logging.getLogger(__name__)
 
 
 class SupervisorAgent:
 
     def __init__(self):
 
-        self.llm = ChatOllama(
-            model=LLM_MODEL,
+        if not GROQ_MODEL:
+            raise ValueError("GROQ_MODEL is not configured in environment variables")
+        if not GROQ_API_KEY:
+            raise ValueError("GROQ_API_KEY is not configured in environment variables")
+
+        logger.info(
+            "[Supervisor] Initializing LLM: model=%s base_url=%s",
+            GROQ_MODEL,
+            GROQ_BASE_URL,
+        )
+
+        self.llm = ChatOpenAI(
+            model=GROQ_MODEL,
             temperature=0,
-            client_kwargs={
-                "timeout": OLLAMA_TIMEOUT_SECONDS,
-            },
+            api_key=GROQ_API_KEY,
+            base_url=GROQ_BASE_URL,
         )
 
         self.prompt = ChatPromptTemplate.from_template(
@@ -85,7 +95,7 @@ RAG
 USE WEB
 -----------------------------------------
 
-Return WEB ONLY if the question requires live or recent internet information.
+Return WEB ONLY if the question requires live, recent, or external internet information.
 
 Examples:
 
@@ -131,7 +141,7 @@ Prefer:
 
 RAG
 
-Only choose WEB when the answer genuinely requires current internet information.
+Only choose WEB when the answer genuinely requires current or external internet information.
 
 Never explain.
 
@@ -147,10 +157,7 @@ Question:
 
         self.chain = self.prompt | self.llm
 
-    def route(
-        self,
-        question: str,
-    ):
+    def route(self, question: str):
 
         response = self.chain.invoke(
             {

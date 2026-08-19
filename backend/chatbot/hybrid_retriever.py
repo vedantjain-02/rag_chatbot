@@ -1,10 +1,16 @@
+import logging
+import hashlib
+
 from .vector_store import get_retriever
 from .bm25_store import BM25Retriever
-import hashlib
 from .config import (
     VECTOR_TOP_K,
     BM25_TOP_K,
 )
+
+logger = logging.getLogger(__name__)
+
+
 class HybridRetriever:
     def __init__(self):
 
@@ -37,10 +43,11 @@ class HybridRetriever:
                 seen.add(key)
                 merged.append(doc)
 
-        print("=" * 70)
-        print("Vector :", len(vector_docs))
-        print("BM25   :", len(bm25_docs))
-        print("Merged :", len(merged))
-        print("=" * 70)
+        logger.debug(
+            "[HybridRetriever] Vector=%d BM25=%d Merged=%d",
+            len(vector_docs),
+            len(bm25_docs),
+            len(merged),
+        )
 
         return merged

@@ -1,10 +1,12 @@
-from langchain_ollama import ChatOllama
-from langchain_core.prompts import ChatPromptTemplate
 import re
 
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
 from ..config import (
-    LLM_MODEL,
-    OLLAMA_TIMEOUT_SECONDS,
+    GROQ_MODEL,
+    GROQ_API_KEY,
+    GROQ_BASE_URL,
 )
 
 
@@ -12,12 +14,11 @@ class QueryRewriter:
 
     def __init__(self):
 
-        self.llm = ChatOllama(
-            model=LLM_MODEL,
+        self.llm = ChatOpenAI(
+            model=GROQ_MODEL,
             temperature=0,
-            client_kwargs={
-                "timeout": OLLAMA_TIMEOUT_SECONDS
-            },
+            api_key=GROQ_API_KEY,
+            base_url=GROQ_BASE_URL,
         )
 
         self.prompt = ChatPromptTemplate.from_template(

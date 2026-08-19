@@ -1,10 +1,18 @@
-from langchain_ollama import ChatOllama
+import os
+import logging
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+
 from .memory.prompt_context import PromptContext
-from .config import LLM_MODEL, OLLAMA_TIMEOUT_SECONDS
 from .prompts import SYSTEM_PROMPT
 from .retrieval.pipeline import RetrievalPipeline
 
+from .config import GROQ_MODEL, GROQ_API_KEY, GROQ_BASE_URL
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 class ChatbotService:
     _instance = None
@@ -22,12 +30,18 @@ class ChatbotService:
 
         self.pipeline = RetrievalPipeline()
 
-        self.llm = ChatOllama(
-            model=LLM_MODEL,
-            temperature=0,
-            client_kwargs={"timeout": OLLAMA_TIMEOUT_SECONDS},
+        logger.info(
+            "[ChatbotService] Initializing LLM: model=%s base_url=%s",
+            GROQ_MODEL,
+            GROQ_BASE_URL,
         )
 
+        self.llm = ChatOpenAI(
+            model=GROQ_MODEL,
+            temperature=0,
+            api_key=GROQ_API_KEY,
+            base_url=GROQ_BASE_URL,
+        )
         self.prompt = ChatPromptTemplate.from_template(
             SYSTEM_PROMPT
         )
@@ -39,8 +53,7 @@ class ChatbotService:
     question: str,
     history=None,
     ):
-        import logging
-        _log = logging.getLogger(__name__)
+        _log = logger
 
         try:
             _log.debug("[ask] Invoking retriever with question: %s", question[:80])

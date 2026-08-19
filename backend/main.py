@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 import logging
 from contextlib import asynccontextmanager
@@ -17,7 +20,6 @@ from src.routes.chatbot.router import router as chatbot_router
 logger = get_logger(__name__)
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s")
-
 
 # @asynccontextmanager
 # async def lifespan(app: FastAPI):

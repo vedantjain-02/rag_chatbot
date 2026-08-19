@@ -1,11 +1,15 @@
+import logging
 from langchain_community.tools import DuckDuckGoSearchRun
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 
 from chatbot.config import (
-    LLM_MODEL,
-    OLLAMA_TIMEOUT_SECONDS,
+    GROQ_MODEL,
+    GROQ_API_KEY,
+    GROQ_BASE_URL,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class WebAgent:
@@ -14,12 +18,11 @@ class WebAgent:
 
         self.search = DuckDuckGoSearchRun()
 
-        self.llm = ChatOllama(
-            model=LLM_MODEL,
+        self.llm = ChatOpenAI(
+            model=GROQ_MODEL,
             temperature=0,
-            client_kwargs={
-                "timeout": OLLAMA_TIMEOUT_SECONDS,
-            },
+            api_key=GROQ_API_KEY,
+            base_url=GROQ_BASE_URL,
         )
 
         self.prompt = ChatPromptTemplate.from_template(

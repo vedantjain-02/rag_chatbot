@@ -2,7 +2,7 @@
 
 from .history_loader import HistoryLoader
 from .history_selector import HistorySelector
-from .prompt_context import PromptContextBuilder
+from .prompt_context import PromptContext
 
 
 class MemoryManager:
@@ -11,7 +11,7 @@ class MemoryManager:
 
         self.loader = HistoryLoader(db)
         self.selector = HistorySelector()
-        self.builder = PromptContextBuilder()
+        self.builder = PromptContext
 
     def get_context(
         self,

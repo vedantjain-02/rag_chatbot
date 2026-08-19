@@ -1,8 +1,12 @@
+import logging
+
 from rank_bm25 import BM25Okapi
 from langchain_core.documents import Document
 from .config import BM25_TOP_K
 from .document_loader import get_chunks
 from .tokenizer import tokenize
+
+logger = logging.getLogger(__name__)
 
 _bm25 = None
 _documents = None
@@ -36,8 +40,10 @@ class BM25Retriever:
             reverse=True,
         )[:k]
         for idx, score in ranked:
-            print(
-                f"BM25 -> Page {self.documents[idx].metadata.get('page')} | Score = {score:.2f}"
+            logger.debug(
+                "BM25 -> Page %s | Score = %.2f",
+                self.documents[idx].metadata.get("page"),
+                score,
             )
         return [
             self.documents[idx]
