@@ -1,5 +1,32 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
-const X_API_KEY = process.env.NEXT_PUBLIC_X_API_KEY || "";
+const configuredApiBase = process.env.NEXT_PUBLIC_API_URL?.trim() || "";
+const API_BASE = configuredApiBase.replace(/\/$/, "");
+const X_API_KEY = process.env.NEXT_PUBLIC_X_API_KEY?.trim() || "";
+
+function isProductionBrowser(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+function validateApiConfiguration(): void {
+  if (!isProductionBrowser()) return;
+
+  if (!API_BASE) {
+    throw new Error("NEXT_PUBLIC_API_URL is not configured for production.");
+  }
+
+  try {
+    const url = new URL(API_BASE);
+    if (url.protocol !== "https:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+      throw new Error("NEXT_PUBLIC_API_URL must use HTTPS in production.");
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("must use HTTPS")) throw error;
+    throw new Error("NEXT_PUBLIC_API_URL must be a valid URL.");
+  }
+
+  if (!X_API_KEY) {
+    throw new Error("NEXT_PUBLIC_X_API_KEY is not configured for production.");
+  }
+}
 
 export function isPublicApiKeyConfigured(): boolean {
   return (
@@ -97,6 +124,7 @@ export async function apiJson(
   init: RequestInit & { auth?: string } = {}
 ): Promise<unknown> {
   const { auth, headers: extra, ...rest } = init;
+  validateApiConfiguration();
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
   const baseHeaders: Record<string, string> = {
     ...apiHeaders(auth),
